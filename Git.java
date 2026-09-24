@@ -34,7 +34,7 @@ public class Git {
 
     public static String hashFile(String filePath) {
         StringBuilder stuffInFile = new StringBuilder();
-        StringBuilder 
+        StringBuilder hexString = new StringBuilder();
     }
 
 
