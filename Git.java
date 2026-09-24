@@ -1,11 +1,13 @@
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
 import java.security.*;
 
 public class Git {
     public static void main(String[] args) throws IOException {
-        Git.init();
-        System.out.println(Git.hashFile("test.txt"));
+        // Git.init();
+        // System.out.println(Git.hashFile("test.txt"));
+        Git.createBlob("test.txt");
     }
 
     public static void init () {
@@ -60,6 +62,29 @@ public class Git {
         }
 
         return hexString.toString();
+
+    }
+
+    public static void createBlob (String filePath) throws IOException {
+        // get hash of the file
+        String hashedFile = Git.hashFile(filePath);
+
+        // create file with the hashed content of the file
+        File obj = new File(hashedFile);
+        obj.createNewFile();
+
+        // write original file content into the obj
+        Path sourcePath = Paths.get(filePath);
+        Path destinationPath = Paths.get("./git/objects/" + hashedFile);
+
+        try {
+            Files.copy(sourcePath, destinationPath, StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("File copied successfully");
+        } 
+        
+        catch (IOException e) {
+            System.out.println("Error during file copying: " + e);
+        }
 
     }
 }
