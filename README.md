@@ -16,3 +16,11 @@ initialize's the Git repository
 - creates file in "/objects"
 - Path.copy the original file content (bytes) to the new file
 
+## updateIndex (String filePath)
+- reads entire existing index file into ArrayList<> lines
+- if matching filePath is found, it replaces with new content/entry (if there is)
+- else it creates an entirely new entry into index
+
+## samePath (String line, String filePath)
+- checks if the line (from index) being passed in has the same path as filePath by splicing in the middle (at the space)
+

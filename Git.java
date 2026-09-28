@@ -2,6 +2,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.*;
+import java.util.ArrayList;
 
 public class Git {
     public static void main(String[] args) throws IOException {
@@ -98,25 +99,63 @@ public class Git {
         String entry = hashedFile + " " + relativePath;
 
         // checking if needs newLine or index is empty
-        boolean hasFirstLine = false;
+        ArrayList<String> lines = new ArrayList<>();
+        boolean updated = false;
 
         try (BufferedReader br = new BufferedReader(new FileReader(index))) {
-            if (br.readLine() != null) {
-                hasFirstLine = true;
+            String line = br.readLine();
+
+            // reading the existing index file (going line by line)
+            while (line != null) {
+                // add same filePath, but with diff hash
+                if (samePath(line, relativePath)) {
+                    lines.add(entry);
+                    updated = true;
+                }
+
+                // add existing line (different filePath)
+                else {
+                    lines.add(line);
+                }
+                line = br.readLine();
             }
         }
 
-        // writing into index
+        // if filePath doesn't exist yet
+        if (!updated) {
+            lines.add(entry);
+        }
+
+        // rewrite index with the updated stuff
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(index))) {
-            if (hasFirstLine) {
-                bw.newLine();
+            int count = 0;
+            for (String line : lines) {
+                bw.write(line);
+
+                // making sure no extra new line at the end
+                if (count < lines.size() - 1) {
+                    bw.newLine();
+                }
+
+                count++;
             }
-            bw.write(entry);
         }
 
         catch (Exception e) {
             System.out.println("Failed to update ./git/index: " + e);
         }
 
+    }
+
+    // helper method to check whether a line in index file has the same file path
+    public static boolean samePath(String line, String filePath) {
+        int spaceInd = line.indexOf(" ");
+
+        if (spaceInd == -1) {
+            return false;
+        }
+
+        String existingPath = line.substring(spaceInd + 1);
+        return existingPath.equals(filePath);
     }
 }
