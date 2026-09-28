@@ -6,11 +6,15 @@ import java.security.*;
 public class Git {
     public static void main(String[] args) throws IOException {
         // Git.init();
-        // System.out.println(Git.hashFile("test.txt"));
+        System.out.println(Git.hashFile("testFolder/test2.txt"));
+        Git.createBlob("testFolder/test2.txt");
+        Git.updateIndex("testFolder/test2.txt");
+
         Git.createBlob("test.txt");
+        Git.updateIndex("test.txt");
     }
 
-    public static void init () {
+    public static void init() {
         File gitDir = new File("./git/");
         if (!gitDir.mkdir()) {
             System.out.println("Git Repository Already Exists");
@@ -18,7 +22,7 @@ public class Git {
 
         File objDir = new File("./git/objects/");
         File index = new File("./git/index");
-        File head = new File ("./git/HEAD");
+        File head = new File("./git/HEAD");
 
         try {
             if (!objDir.mkdir() || !index.createNewFile() || !head.createNewFile()) {
@@ -45,7 +49,7 @@ public class Git {
                 stuffInFile.append(line);
             }
         }
-        
+
         // turn stuffInFile to bytes
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-1");
@@ -65,13 +69,9 @@ public class Git {
 
     }
 
-    public static void createBlob (String filePath) throws IOException {
+    public static void createBlob(String filePath) throws IOException {
         // get hash of the file
         String hashedFile = Git.hashFile(filePath);
-
-        // create file with the hashed content of the file
-        File obj = new File(hashedFile);
-        obj.createNewFile();
 
         // write original file content into the obj
         Path sourcePath = Paths.get(filePath);
@@ -80,10 +80,42 @@ public class Git {
         try {
             Files.copy(sourcePath, destinationPath, StandardCopyOption.REPLACE_EXISTING);
             System.out.println("File copied successfully");
-        } 
-        
+        }
+
         catch (IOException e) {
             System.out.println("Error during file copying: " + e);
+        }
+
+    }
+
+    public static void updateIndex(String filePath) throws IOException {
+        String hashedFile = Git.hashFile(filePath);
+        File index = new File("./git/index");
+
+        // getting path of filePath
+        Path path = Paths.get(filePath);
+        String relativePath = path.toString();
+        String entry = hashedFile + " " + relativePath;
+
+        // checking if needs newLine or index is empty
+        boolean hasFirstLine = false;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(index))) {
+            if (br.readLine() != null) {
+                hasFirstLine = true;
+            }
+        }
+
+        // writing into index
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(index))) {
+            if (hasFirstLine) {
+                bw.newLine();
+            }
+            bw.write(entry);
+        }
+
+        catch (Exception e) {
+            System.out.println("Failed to update ./git/index: " + e);
         }
 
     }
