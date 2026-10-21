@@ -2,17 +2,28 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.*;
+import java.sql.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HexFormat;
 
 public class Git {
     public static void main(String[] args) throws IOException {
         // Git.init();
-        System.out.println(Git.hashFile("testFolder/test2.txt"));
-        Git.createBlob("testFolder/test2.txt");
-        Git.updateIndex("testFolder/test2.txt");
+        // Git.createBlob("testFolder/test2.txt");
+        // Git.updateIndex("testFolder/test2.txt");
 
-        Git.createBlob("test.txt");
-        Git.updateIndex("test.txt");
+        // Git.createBlob("test.txt");
+        // Git.updateIndex("test.txt");
+
+        // Git.createBlob("README.md");
+        // Git.updateIndex("README.md");
+        // printCommit("author", "message");
+        // System.out.println(indexRecursive("29b5a3711b7cd3cbb8de67aba227183c9542c21d", ""));
+        // rebuildIndex();
+        checkout(null);
     }
 
     public static void init() {
@@ -41,7 +52,6 @@ public class Git {
 
     public static String hashFile(String filePath) throws IOException {
         StringBuilder stuffInFile = new StringBuilder();
-        StringBuilder hexString = new StringBuilder();
 
         // gets stuffInFile
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
@@ -53,9 +63,16 @@ public class Git {
         }
 
         // turn stuffInFile to bytes
+        
+        return hashString(stuffInFile.toString());
+
+    }
+
+    private static String hashString(String input) {
+        StringBuilder hexString = new StringBuilder();
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-1");
-            byte[] bytes = md.digest(stuffInFile.toString().getBytes(StandardCharsets.UTF_8));
+            byte[] bytes = md.digest(input.toString().getBytes(StandardCharsets.UTF_8));
 
             // bytes to hash
             for (byte b : bytes) {
@@ -66,9 +83,7 @@ public class Git {
         } catch (NoSuchAlgorithmException e) {
             System.out.println("NoSuchAlgorithmException: file couldn't be hashed :(");
         }
-
-        return hexString.toString();
-
+        return null;
     }
 
     public static void createBlob(String filePath) throws IOException {
@@ -93,11 +108,12 @@ public class Git {
     public static void updateIndex(String filePath) throws IOException {
         String hashedFile = Git.hashFile(filePath);
         File index = new File("./git/index");
+        String root = new File("..").getAbsoluteFile().getParentFile().getName();
 
         // getting path of filePath
         Path path = Paths.get(filePath);
         String relativePath = path.toString();
-        String entry = hashedFile + " " + relativePath;
+        String entry =  hashedFile + " " + root + "/" + relativePath;
 
         // checking if needs newLine or index is empty
         ArrayList<String> lines = new ArrayList<>();
@@ -109,7 +125,7 @@ public class Git {
             // reading the existing index file (going line by line)
             while (line != null) {
                 // add same filePath, but with diff hash
-                if (samePath(line, relativePath)) {
+                if (samePath(line, root + "/" + relativePath)) {
                     lines.add(entry);
                     updated = true;
                 }
@@ -159,4 +175,198 @@ public class Git {
         String existingPath = line.substring(spaceInd + 1);
         return existingPath.equals(filePath);
     }
+
+    public static String createTree(ArrayList<String> workingList, String dirPath)
+            throws IOException {
+        StringBuilder treeContents = new StringBuilder();
+        boolean firstLine = true;
+
+        for (String line : workingList) {
+            String[] parts = line.split(" ", 3);
+
+            String type = parts[0];
+            String hash = parts[1];
+            String path = parts[2];
+
+            int lastSlash = path.lastIndexOf("/");
+
+            if (lastSlash != -1) {
+                String folder = path.substring(0, lastSlash);
+
+                if (folder.equals(dirPath)) {
+                    String name = path.substring(lastSlash + 1);
+
+                    if (!firstLine) {
+                        treeContents.append("\n");
+                    }
+
+                    treeContents.append(type + " " + hash + " " + name);
+                    firstLine = false;
+                }
+            }
+        }
+        String contents = treeContents.toString();
+
+        String hashed = hashString(contents);
+
+        File treeFile = new File("git/objects", hashed);
+
+        try {
+            treeFile.createNewFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(treeFile))) {
+            writer.write(contents);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return hashed;
+    }
+
+    public static String treeIndex() {
+        try {
+            File indexFile = new File("./git/index"); 
+            StringBuilder fileString = new StringBuilder();
+            BufferedReader brFile = new BufferedReader(new FileReader(indexFile));
+            String line = "";
+            while ((line = brFile.readLine()) != null) {
+                fileString.append(line);
+                fileString.append('\n');
+            }
+            brFile.close();
+            ArrayList<String> indexArray = new ArrayList<>(Arrays.asList(fileString.substring(0,fileString.length()-1).split("\n")));
+            for (int i = 0; i < indexArray.size(); i++) {
+                indexArray.set(i, "blob " + indexArray.get(i));
+            }
+            // String index = "";
+            String deepPath = "/";
+            String root = new File("..").getAbsoluteFile().getParentFile().getName();
+            
+            while (!deepPath.equals(root) && deepPath.length()!=0) {
+                deepPath = "";
+                for (String string : indexArray) {
+                    if ((deepPath.length() - deepPath.replace("/", "").length()) < (string.length() - string.replace("/", "").length())) {
+                        deepPath = new File(string.substring(string.indexOf(' ', string.indexOf(' ') + 1) + 1)).getParent();
+                    }
+                }
+                ArrayList<Integer> remove = new ArrayList<>();
+                for (int i = 0; i < indexArray.size(); i++) {
+                    if (indexArray.get(i).contains(deepPath)) {
+                        remove.add(i);
+                    }
+                }
+                indexArray.add("tree " + createTree(indexArray, deepPath) + " " + deepPath);
+                for (int i = 0; i < remove.size(); i++) {
+                    indexArray.remove((int) remove.get(i)-i);
+                }
+            }
+            String rootHash = hashString(indexArray.get(0));
+            FileWriter fw = new FileWriter("./git/objects/" + rootHash);
+            fw.write(indexArray.get(0));
+            fw.close();
+            createTree(indexArray, deepPath);
+            return rootHash;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static String printCommit(String author, String message) {
+        String tree = treeIndex();
+        String parent = "";
+        String date = LocalDateTime.now().toString();
+        StringBuilder print = new StringBuilder();
+        try (
+            BufferedReader br = new BufferedReader(new FileReader("./git/HEAD"));
+        ) {
+            parent = br.readLine();
+            print.append("tree: ").append(tree).append("\n");
+            if (parent != null) print.append("parent: ").append(parent).append("\n");
+            print.append("author: ").append(author).append("\n");
+            print.append("date: ").append(date).append("\n");
+            print.append("message: ").append(message);
+            String commitHash = hashString(print.toString());
+            BufferedWriter bw = new BufferedWriter(new FileWriter("./git/HEAD"));
+            bw.write(commitHash);
+            bw.close();
+            bw = new BufferedWriter(new FileWriter("./git/objects/" + commitHash));
+            bw.write(print.toString());
+            bw.close();
+            return commitHash;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static String rebuildIndex(String commit) {
+        try {
+            // BufferedReader headReader = new BufferedReader(new FileReader("./git/HEAD"));
+            // String head = headReader.readLine();
+            // headReader.close();
+
+            BufferedReader treeReader = new BufferedReader(new FileReader("./git/objects/" + commit));
+            String tree = treeReader.readLine();
+            tree = tree.substring(tree.indexOf(' ') + 1);
+            treeReader.close();
+
+            BufferedWriter indexWriter = new BufferedWriter(new FileWriter("./git/index"));
+            indexWriter.write(indexRecursive(tree, ""));
+            indexWriter.close();
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String indexRecursive(String tree, String path) {
+        try {
+            BufferedReader file = new BufferedReader(new FileReader("./git/objects/" + tree));
+            StringBuilder index = new StringBuilder();
+            String line;
+            while ((line = file.readLine()) != null) {
+                if (line.startsWith("blob")) {
+                    System.out.println(line);
+                    index.append(line.substring(line.indexOf(' ')+1, line.lastIndexOf(' ')+1));
+                    index.append(path.substring(1)).append('/').append(line.substring(line.lastIndexOf(' ')+1)).append('\n');
+                } else {
+                    index.append(indexRecursive(line.substring(line.indexOf(' ')+1, line.lastIndexOf(' ')), path + "/" + line.substring(line.lastIndexOf(' ') +1)));
+                }
+            }
+            return index.toString();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public static void checkout(String commit) {
+        try {
+            BufferedReader indexReader = new BufferedReader(new FileReader("./git/index"));
+            String line;
+            String home = new File("").getAbsoluteFile().getName();
+            while ((line = indexReader.readLine()) != null) {
+                System.out.println(line);
+                File delPath = new File(line.substring(line.lastIndexOf(' ')+1));
+                while (delPath != null && !delPath.getName().equals(home)) {
+                    delPath.delete();
+                    delPath=delPath.getParentFile();
+                }
+            }
+            File com = new File("./git/objects/"+commit);
+            if (!com.exists()) {
+                throw new IOException();
+            }
+            BufferedWriter headWriter = new BufferedWriter(new FileWriter("./git/HEAD"));
+            headWriter.write(commit);
+            headWriter.close();
+            rebuildIndex(commit);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }
+
