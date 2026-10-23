@@ -418,8 +418,19 @@ public class Git {
                 branchReader.close();
 
                 head = "ref: refs/heads/" + branchFile.getName();
-            }
+            } else {
+                File commitFile = new File("./git/objects/" + commit);
 
+                if (!commitFile.isFile()) {
+                    createBranch(commit);
+
+                    BufferedWriter headWriter = new BufferedWriter(new FileWriter("./git/HEAD"));
+                    headWriter.write("ref: refs/heads/" + commit);
+                    headWriter.close();
+
+                    return;
+                }
+            }
             // check if commit exists
             File commitPath = new File("./git/objects/" + commit);
             if (!commitPath.isFile()) {
