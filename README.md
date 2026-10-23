@@ -24,3 +24,6 @@ initialize's the Git repository
 ## samePath (String line, String filePath)
 - checks if the line (from index) being passed in has the same path as filePath by splicing in the middle (at the space)
 
+## 10/22/26 fixes
+- checkout delete every tracked file + parent folder, even if files exist in commit being checked out --> saved old index, rebuilt index for target commit, then compared to see if file needs to be deleted
+- checkout updated HEAD without restoring file contents --> added loop to copy each blob from git/objects back to its OG file path, creating folders as necessary; HEAD updated at end

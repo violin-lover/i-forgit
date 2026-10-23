@@ -7,20 +7,40 @@ import java.util.*;
 
 public class Git {
     public static void main(String[] args) throws IOException {
+        // initialize repo
         // Git.init();
-        // Git.createBlob("testFolder/test2.txt");
-        // Git.updateIndex("testFolder/test2.txt");
 
+        // // create two files
+        // Files.writeString(Paths.get("test.txt"), "original");
+        // Files.createDirectories(Paths.get("testFolder"));
+        // Files.writeString(Paths.get("testFolder/test2.txt"), "hello");
+
+        // // add files to index
         // Git.createBlob("test.txt");
         // Git.updateIndex("test.txt");
 
-        // Git.createBlob("README.md");
-        // Git.updateIndex("README.md");
-        // printCommit("author", "message");
-        // System.out.println(indexRecursive("29b5a3711b7cd3cbb8de67aba227183c9542c21d",
-        // ""));
-        // rebuildIndex();
-        checkout(null);
+        // Git.createBlob("testFolder/test2.txt");
+        // Git.updateIndex("testFolder/test2.txt");
+
+        // // commit A
+        // String commitA = printCommit("author", "1st commit");
+        // System.out.println("\n\nCommit A: " + commitA);
+
+        // // change one file then stage again
+        // Files.writeString(Paths.get("test.txt"), "changed");
+        // Git.createBlob("test.txt");
+        // Git.updateIndex("test.txt");
+
+        // // commit B
+        // String commitB = printCommit("author", "2nd commit");
+        // System.out.println("\n\nCommit B: " + commitB);
+
+        // // sout parent (it should be commit A)
+        // System.out.println(Files.readString(Paths.get("./git/objects/" + commitB)));
+
+        // // checkout
+        // checkout(commitA);
+        // System.out.println(Files.readString(Paths.get("testFolder/test2.txt")));
     }
 
     public static void init() {
@@ -356,25 +376,59 @@ public class Git {
     public static void checkout(String commit) {
         try {
             BufferedReader indexReader = new BufferedReader(new FileReader("./git/index"));
-            String line;
-            String home = new File("").getAbsoluteFile().getName();
-            while ((line = indexReader.readLine()) != null) {
-                System.out.println(line);
-                File delPath = new File(line.substring(line.lastIndexOf(' ') + 1));
-                while (delPath != null && !delPath.getName().equals(home)) {
-                    delPath.delete();
-                    delPath = delPath.getParentFile();
-                }
-            }
-            indexReader.close();
+
             File commitPath = new File("./git/objects/" + commit);
             if (!commitPath.exists()) {
                 throw new IOException();
             }
+            indexReader.close();
+
+            ArrayList<String> oldIndex = new ArrayList<>(Files.readAllLines(Paths.get("./git/index")));
+            rebuildIndex(commit);
+            ArrayList<String> newIndex = new ArrayList<>(Files.readAllLines(Paths.get("./git/index")));
+
+            for (String line : oldIndex) {
+                String oldPath = line.substring(line.indexOf(' ') + 1);
+                boolean found = false;
+
+                for (String newLine : newIndex) {
+                    String newPath = newLine.substring(newLine.indexOf(' ') + 1);
+
+                    if (oldPath.equals(newPath)) {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    File delPath = new File(oldPath.substring(oldPath.indexOf('/') + 1));
+                    delPath.delete();
+                }
+            }
+
+            // restore files from blobs
+            for (String line : newIndex) {
+                String[] parts = line.split(" ", 2);
+
+                String hash = parts[0];
+                String filePath = parts[1];
+
+                filePath = filePath.substring(filePath.indexOf('/') + 1);
+
+                File file = new File(filePath);
+
+                if (file.getParentFile() != null) {
+                    file.getParentFile().mkdirs();
+                }
+
+                Files.copy(Paths.get("./git/objects/" + hash), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            // update HEAD
             BufferedWriter headWriter = new BufferedWriter(new FileWriter("./git/HEAD"));
             headWriter.write(commit);
             headWriter.close();
-            rebuildIndex(commit);
+
         } catch (Exception e) {
             e.printStackTrace();
         }
