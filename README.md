@@ -27,3 +27,8 @@ initialize's the Git repository
 ## 10/22/26 fixes
 - checkout delete every tracked file + parent folder, even if files exist in commit being checked out --> saved old index, rebuilt index for target commit, then compared to see if file needs to be deleted
 - checkout updated HEAD without restoring file contents --> added loop to copy each blob from git/objects back to its OG file path, creating folders as necessary; HEAD updated at end
+- edited printCommit() so it updates curr branch instead of HEAD 
+
+## createBranch()
+- creates branch file without changing head
+- Git.createBranch("branchName");
