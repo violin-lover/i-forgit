@@ -27,8 +27,9 @@ public class GitWrapper {
      * If the file is a directory, it throws an IOException.
      * If the file is already in the index, it does nothing.
      * If the file is successfully staged, it creates a blob for the file.
+     * 
      * @param filePath The path to the file to be staged.
-     * @throws IOException 
+     * @throws IOException
      */
     public void add(String filePath) {
         File file = new File(filePath);
@@ -39,13 +40,14 @@ public class GitWrapper {
             Git.createBlob(filePath);
             Git.updateIndex(filePath);
         } catch (IOException e) {
-            
+
         }
     }
 
     /**
      * Creates a commit with the given author and message.
-     * It should capture the current state of the repository by building trees based on the index file,
+     * It should capture the current state of the repository by building trees based
+     * on the index file,
      * writing the tree to the objects directory,
      * writing the commit to the objects directory,
      * updating the HEAD file,
@@ -64,6 +66,13 @@ public class GitWrapper {
      */
     public String commit(String author, String message) {
         return Git.printCommit(author, message);
+    }
+
+    /**
+     * creates new branch at the current commit.
+     */
+    public void createBranch(String name) {
+        Git.createBranch(name);
     }
 
     /**
